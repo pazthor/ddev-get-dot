@@ -1,0 +1,15 @@
+# fzf et al
+# RUN set -eux; \
+#     FZF_SHA1=0476a65fca287a1cd17ae3cbdfd8155eb0fb40ad; \
+#     FZFGIT_SHA1=28b544a7b6d284b8e46e227b36000089b45e9e00; \
+#     mkdir -p /opt/fzf; \
+#     cd /opt/fzf; \
+#     git init; \
+#     git remote add origin https://github.com/junegunn/fzf.git; \
+#     git fetch --depth 1 origin ${FZF_SHA1}; \
+#     git checkout FETCH_HEAD; \
+#     /opt/fzf/install --all; \
+#     cp /root/.fzf.bash /opt;
+
+RUN set -eux; \
+    apt get install -y fzf

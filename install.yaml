@@ -59,9 +59,9 @@ pre_install_actions:
 # If you use directories, they must be directories that are managed
 # by this add-on, or removal could remove things that are not owned by it
 project_files:
-  - docker-compose.addon-template.yaml
+  - docker-compose.dot.yaml
   # - commands/web/add-on-command
-  # - commands/host/add-on-command-host
+  - commands/host/dot
   # - web-build/Dockerfile.addon-template
   # - some-directory/file1.txt
   # - some-directory/file2.txt
@@ -82,7 +82,7 @@ global_files:
 # See https://github.com/Masterminds/semver#checking-version-constraints for constraint rules.
 # Available with DDEV v1.23.4+, and works only for DDEV v1.23.4+ binaries
 # example: ddev_version_constraint: '>= v1.23.4'
-ddev_version_constraint: ''
+ddev_version_constraint: ""
 
 # List of add-on names that this add-on depends on
 dependencies:

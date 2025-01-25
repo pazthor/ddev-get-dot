@@ -2,9 +2,8 @@
 
 ## #ddev-generated
 ## Description: Opens up a fish shell in the container or executs a command within a fish shell
-## Usage: fish
-## Example: ddev fish
+## Usage: doth
+## Example: ddev dot
 ## ExecRaw: true
 
-
-find tools/scripts/laravel | fzf --preview="cat _" | xargs -I _  exec bash -c "$_"
+find tools/scripts/laravel | fzf --preview="cat _" | xargs -I _ exec bash -c "$_"

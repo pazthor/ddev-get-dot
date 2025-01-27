@@ -60,8 +60,8 @@ pre_install_actions:
 # by this add-on, or removal could remove things that are not owned by it
 project_files:
   - docker-compose.dot.yaml
-  # - commands/web/add-on-command
-  - commands/host/dot
+  - commands/web/dot
+  # - commands/host/dot
   # - web-build/Dockerfile.addon-template
   # - some-directory/file1.txt
   # - some-directory/file2.txt

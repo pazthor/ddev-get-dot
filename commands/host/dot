@@ -1,4 +1,5 @@
 #!/bin/bash
+set -eo pipefail
 
 ## #ddev-generated
 ## Description: executes a script from tools/scripts/laravel
@@ -7,35 +8,29 @@
 ## ExecRaw: true
 
 # Configuration
-readonly SCRIPT_DIR="/home/pastor/PhpstormProjects/go-roam/tools/scripts/laravel"
 
-# Function to get script names
+
+readonly SCRIPT_DIR="/var/www/html/tools/scripts/laravel"
+
+# 1) Grab basenames via ddev exec
 get_script_names() {
-    find "$SCRIPT_DIR" -type f -exec basename {} \;
+  ddev exec "find '$SCRIPT_DIR' -type f -printf '%f\n'"
 }
 
-# Function to get full path of a script
-get_script_path() {
-    local script_name="$1"
-    echo "$SCRIPT_DIR/$script_name"
-}
-
-# Main function to run fzf interface
+# 2) fzf + preview + run via ddev exec
 run_script_selector() {
-    get_script_names | \
+  get_script_names |
     fzf \
-    --preview="cat '$SCRIPT_DIR/{}'" \
-    --preview-window="right:60%" \
-    --header="Select a script to execute" \
-    --prompt="Script > " \
-    --pointer=">" \
-    --marker="*" \
-    --bind="ctrl-space:toggle-preview" \
-    | xargs -I {} bash -c "bash '$SCRIPT_DIR/{}'"
+      --preview="ddev exec bash -c 'cat \"$SCRIPT_DIR/{}\"'" \
+      --preview-window="right:60%" \
+      --header="Select a script to execute" \
+      --prompt="Script > " \
+      --pointer=">" \
+      --marker="*" \
+      --bind="ctrl-space:toggle-preview" |
+    xargs -r -I {} ddev exec "$SCRIPT_DIR/{}"
 }
 
-# Run the script selector
 run_script_selector
-
 
 

@@ -6,4 +6,24 @@
 ## Example: ddev dot
 ## ExecRaw: true
 
-find tools/scripts/laravel -type f | fzf --preview="cat _" | xargs -I _ bash -c "_"
+# ddev dot: dont allow dynamic directory, so we can set a default directory in the .ddev/commands/host/dot.yaml file
+# idea: set a default directory in the .ddev/commands/host/dot.yaml file 
+# and then set the script directory  dinamically 
+
+current_dir=/home/pastor/PhpstormProjects/go-roam/
+
+# Find and display scripts with fzf
+find "$current_dir/tools/scripts/laravel" -type f -exec basename {} \; | \
+    fzf \
+    --preview="cat $current_dir/tools/scripts/laravel/{}" \
+    --preview-window="right:60%" \
+    --header="Select a script to execute" \
+    --prompt="Script > " \
+    --pointer=">" \
+    --marker="*" \
+    --bind="ctrl-space:toggle-preview" \
+    | xargs -I {} bash -c "$current_dir/tools/scripts/laravel/{}"
+
+
+
+

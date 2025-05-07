@@ -8,8 +8,8 @@ set -eo pipefail
 ## ExecRaw: true
 
 # Configuration
-
-
+# TODO: Make this configurable
+# TODO: Add a way to select folder scripts: example laravel/scripts, svelte/scripts, etc.
 readonly SCRIPT_DIR="/var/www/html/tools/scripts/laravel"
 
 # 1) Grab basenames via ddev exec

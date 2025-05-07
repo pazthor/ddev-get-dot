@@ -6,24 +6,36 @@
 ## Example: ddev dot
 ## ExecRaw: true
 
-# ddev dot: dont allow dynamic directory, so we can set a default directory in the .ddev/commands/host/dot.yaml file
-# idea: set a default directory in the .ddev/commands/host/dot.yaml file 
-# and then set the script directory  dinamically 
+# Configuration
+readonly SCRIPT_DIR="/home/pastor/PhpstormProjects/go-roam/tools/scripts/laravel"
 
-current_dir=/home/pastor/PhpstormProjects/go-roam/
+# Function to get script names
+get_script_names() {
+    find "$SCRIPT_DIR" -type f -exec basename {} \;
+}
 
-# Find and display scripts with fzf
-find "$current_dir/tools/scripts/laravel" -type f -exec basename {} \; | \
+# Function to get full path of a script
+get_script_path() {
+    local script_name="$1"
+    echo "$SCRIPT_DIR/$script_name"
+}
+
+# Main function to run fzf interface
+run_script_selector() {
+    get_script_names | \
     fzf \
-    --preview="cat $current_dir/tools/scripts/laravel/{}" \
+    --preview="cat '$SCRIPT_DIR/{}'" \
     --preview-window="right:60%" \
     --header="Select a script to execute" \
     --prompt="Script > " \
     --pointer=">" \
     --marker="*" \
     --bind="ctrl-space:toggle-preview" \
-    | xargs -I {} bash -c "$current_dir/tools/scripts/laravel/{}"
+    | xargs -I {} bash -c "bash '$SCRIPT_DIR/{}'"
+}
 
+# Run the script selector
+run_script_selector
 
 
 

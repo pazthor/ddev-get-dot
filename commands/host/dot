@@ -6,31 +6,64 @@ set -eo pipefail
 ## Usage: dot
 ## Example: ddev dot
 ## ExecRaw: true
+## TODO move to web but investigate how to install dependencies(fzf docspar)
 
-# Configuration
-# TODO: Make this configurable
-# TODO: Add a way to select folder scripts: example laravel/scripts, svelte/scripts, etc.
-readonly SCRIPT_DIR="/var/www/html/tools/scripts/laravel"
+##TODO: when read context and script, re rund dot() function to execute full paths
+## add two branches if has not arguments (get arguments) and two if has argument(call execute script)
 
-# 1) Grab basenames via ddev exec
-get_script_names() {
-  ddev exec "find '$SCRIPT_DIR' -type f -printf '%f\n'"
+readonly SCRIPT_DIR="/var/www/html/tools/scripts"
+
+# If at least two args, run non-interactive
+if [[ $# -ge 2 ]]; then
+  context="$1"
+  script_name="$2"
+  shift 2
+  target="$SCRIPT_DIR/$context/$script_name"
+
+  # Sanity checks
+  if [[ ! -d "$SCRIPT_DIR/$context" ]]; then
+    echo "Error: context folder '$context' not found in '$SCRIPT_DIR'." >&2
+    exit 2
+  fi
+  if [[ ! -f "$target" ]]; then
+    echo "Error: script '$script_name' not found in '$SCRIPT_DIR/$context'." >&2
+    exit 3
+  fi
+
+  # Execute it inside the web container, forwarding all args
+  ddev exec bash -lc "\"$target\" \"$@\""
+  exit
+fi
+
+# ——— Interactive picker ———
+
+get_contexts() {
+  # List only folders under tools/scripts/laravel
+  ddev exec "find '$SCRIPT_DIR' -mindepth 1 -maxdepth 1 -type d -printf '%f\n'"
 }
 
-# 2) fzf + preview + run via ddev exec
-run_script_selector() {
-  get_script_names |
+get_scripts() {
+  local ctx="$1"
+  ddev exec "find '$SCRIPT_DIR/$ctx' -type f -printf '%f\n'"
+}
+
+run_interactive() {
+  # First choose context
+  ctx=$(get_contexts | fzf --header="Select context" --prompt="Context> ")
+  [[ -n "$ctx" ]] || exit
+
+  # Then choose a script within it
+  script=$(get_scripts "$ctx" |
     fzf \
-      --preview="ddev exec bash -c 'cat \"$SCRIPT_DIR/{}\"'" \
+      --preview="ddev exec bash -lc 'cat \"$SCRIPT_DIR/$ctx/{}\"'" \
       --preview-window="right:60%" \
-      --header="Select a script to execute" \
-      --prompt="Script > " \
-      --pointer=">" \
-      --marker="*" \
-      --bind="ctrl-space:toggle-preview" |
-    xargs -r -I {} ddev exec "$SCRIPT_DIR/{}"
+      --header="Select script in '$ctx'" \
+      --prompt="Script> " \
+      --bind="ctrl-space:toggle-preview")
+  [[ -n "$script" ]] || exit
+
+  # Run it
+  ddev exec bash -lc "\"$SCRIPT_DIR/$ctx/$script\""
 }
 
-run_script_selector
-
-
+run_interactive

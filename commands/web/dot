@@ -3,67 +3,44 @@ set -eo pipefail
 
 ## #ddev-generated
 ## Description: executes a script from tools/scripts/laravel
-## Usage: dot
-## Example: ddev dot
+## Usage: dot  [context] [script] [args…]
+## Example: ddev dot laravel migrate
 ## ExecRaw: true
+## HostWorkingDir: true
 ## TODO move to web but investigate how to install dependencies(fzf docspar)
 
-##TODO: when read context and script, re rund dot() function to execute full paths
-## add two branches if has not arguments (get arguments) and two if has argument(call execute script)
 
+command -v fzf >/dev/null 2>&1 || { echo "❌ Install fzf" >&2; exit 1; }
 readonly SCRIPT_DIR="/var/www/html/tools/scripts"
+[[ -d "$SCRIPT_DIR" ]] || { echo "❌ $SCRIPT_DIR not found" >&2; exit 1; }
 
-# If at least two args, run non-interactive
+# 1) full non-interactive: context + script
 if [[ $# -ge 2 ]]; then
-  context="$1"
-  script_name="$2"
-  shift 2
-  target="$SCRIPT_DIR/$context/$script_name"
-
-  # Sanity checks
-  if [[ ! -d "$SCRIPT_DIR/$context" ]]; then
-    echo "Error: context folder '$context' not found in '$SCRIPT_DIR'." >&2
-    exit 2
-  fi
-  if [[ ! -f "$target" ]]; then
-    echo "Error: script '$script_name' not found in '$SCRIPT_DIR/$context'." >&2
-    exit 3
-  fi
-
-  # Execute it inside the web container, forwarding all args
-  ddev exec bash -lc "\"$target\" \"$@\""
-  exit
+  ctx="$1"; script="$2"; shift 2
+  target="$SCRIPT_DIR/$ctx/$script"
+  [[ -d "$SCRIPT_DIR/$ctx" ]] || { echo "❌ Context '$ctx' not found." >&2; exit 2; }
+  [[ -x "$target" ]]          || { echo "❌ '$script' not executable." >&2; exit 3; }
+  exec "$target" "$@"
 fi
 
-# ——— Interactive picker ———
+# 2) context-only: pick script within a given context
+if [[ $# -eq 1 ]]; then
+  ctx="$1"
+  [[ -d "$SCRIPT_DIR/$ctx" ]] || { echo "❌ Context '$ctx' not found." >&2; exit 2; }
+  script=$(find "$SCRIPT_DIR/$ctx" -type f -printf '%f\n' \
+             | fzf \
+                 --preview="cat $SCRIPT_DIR/$ctx/{}" \
+                 --prompt="Script in $ctx> ") \
+    || exit
+  exec "$SCRIPT_DIR/$ctx/$script"
+fi
 
-get_contexts() {
-  # List only folders under tools/scripts/laravel
-  ddev exec "find '$SCRIPT_DIR' -mindepth 1 -maxdepth 1 -type d -printf '%f\n'"
-}
-
-get_scripts() {
-  local ctx="$1"
-  ddev exec "find '$SCRIPT_DIR/$ctx' -type f -printf '%f\n'"
-}
-
-run_interactive() {
-  # First choose context
-  ctx=$(get_contexts | fzf --header="Select context" --prompt="Context> ")
-  [[ -n "$ctx" ]] || exit
-
-  # Then choose a script within it
-  script=$(get_scripts "$ctx" |
-    fzf \
-      --preview="ddev exec bash -lc 'cat \"$SCRIPT_DIR/$ctx/{}\"'" \
-      --preview-window="right:60%" \
-      --header="Select script in '$ctx'" \
-      --prompt="Script> " \
-      --bind="ctrl-space:toggle-preview")
-  [[ -n "$script" ]] || exit
-
-  # Run it
-  ddev exec bash -lc "\"$SCRIPT_DIR/$ctx/$script\""
-}
-
-run_interactive
+# 3) no args: pick context then pick script
+ctx=$(find "$SCRIPT_DIR" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' \
+      | fzf --prompt="Context> ") || exit
+script=$(find "$SCRIPT_DIR/$ctx" -type f -printf '%f\n' \
+         | fzf \
+             --preview="cat $SCRIPT_DIR/$ctx/{}" \
+             --prompt="Script in $ctx> ") \
+  || exit
+exec "$SCRIPT_DIR/$ctx/$script"

@@ -60,7 +60,7 @@ pre_install_actions:
 # by this add-on, or removal could remove things that are not owned by it
 project_files:
   - docker-compose.dot.yaml
-  - commands/host/dot
+  - commands/web/dot
   # - web-build/Dockerfile.addon-template
   # - some-directory/file1.txt
   # - some-directory/file2.txt
@@ -90,7 +90,7 @@ dependencies:
 # DDEV environment variables can be interpolated into these actions.
 # post_install_actions are executed in the context of the target project's .ddev directory.
 post_install_actions:
-  # - chmod +x ~/.ddev/commands/web/somecommand
+  - chmod +x ~/.ddev/commands/web/dot
   # - touch ${DDEV_APPROOT}/somefile.${GOOS}.${DDEV_WEBSERVER}
   # - perl -pi -e 's/oldstring/newstring/g' ${DDEV_APPROOT}/.ddev/docker-compose.addon-template.yaml
 

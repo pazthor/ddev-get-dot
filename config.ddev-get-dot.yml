@@ -1,2 +1,9 @@
 webimage_extra_packages:
   - fzf
+
+
+web_environment:
+  # default mountpoint inside the container
+  DDEV_DOT_ROOT_PATH: /var/www/html
+  # default location of your scripts relative to project root
+  DDEV_DOT_SCRIPT_PATH: tools/scripts

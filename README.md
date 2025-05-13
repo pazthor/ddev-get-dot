@@ -51,3 +51,29 @@ Add-ons were covered in [DDEV Add-ons: Creating, maintaining, testing](https://w
 Note that more advanced techniques are discussed in [Advanced Add-On Techniques](https://ddev.com/blog/advanced-add-on-contributor-training/) and [DDEV docs](https://ddev.readthedocs.io/en/stable/users/extend/additional-services/).
 
 **Contributed and maintained by `@CONTRIBUTOR`**
+
+
+# TODO  update environment variable
+
+If a user wants their scripts in a different place, they can simply edit .ddev/config.yaml:
+
+```yml
+web_environment:
+  DDEV_DOT_ROOT_PATH: /var/www/html/packages
+  DDEV_DOT_SCRIPT_PATH: custom/tools
+
+```
+
+
+```yml
+# env to dot 
+ROOT_PATH="${DDEV_DOT_ROOT_PATH:-/var/www/html}"
+SCRIPT_PATH="${DDEV_DOT_SCRIPT_PATH:-tools/scripts}"
+SCRIPT_DIR="$ROOT_PATH/$SCRIPT_PATH"
+
+# sanity check:
+[[ -d "$SCRIPT_DIR" ]] || {
+  echo "❌ scripts directory not found at $SCRIPT_DIR" >&2
+  exit 1
+}
+```

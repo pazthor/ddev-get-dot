@@ -1,6 +1,6 @@
+#ddev-generated
 webimage_extra_packages:
   - fzf
-
 
 web_environment:
   # default mountpoint inside the container

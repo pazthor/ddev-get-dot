@@ -1,0 +1,39 @@
+name: Release
+
+# 1️⃣ Trigger when a tag is pushed
+on:
+  push:
+    tags:
+      - '**'             # match any tag like v1.2.3 :contentReference[oaicite:3]{index=3}
+
+jobs:
+  create_release:
+    name: Create Release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4  # ensure code is available :contentReference[oaicite:4]{index=4}
+
+      - name: Get release tag
+        id: vars
+        run: echo "RELEASE_TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+
+      - name: Create GitHub Release
+        uses: actions/create-release@v1  # official action to create a release :contentReference[oaicite:5]{index=5}
+        with:
+          tag_name: ${{ env.RELEASE_TAG }}
+          release_name: Release ${{ env.RELEASE_TAG }}
+          body_path: RELEASE_NOTES.md     # optionally read body from a file
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload Release Asset
+        uses: actions/upload-release-asset@v1  # attach compiled binaries or assets :contentReference[oaicite:6]{index=6}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./dist/app.zip
+          asset_name: app-${{ env.RELEASE_TAG }}.zip
+          asset_content_type: application/zip

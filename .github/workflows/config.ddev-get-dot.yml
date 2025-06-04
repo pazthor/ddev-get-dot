@@ -1,0 +1,14 @@
+
+web_environment:
+  DDEV_DOT_ROOT_PATH: /var/www/html
+  DDEV_DOT_SCRIPT_PATH: tools/scripts
+
+hooks:
+  post-start:
+    - exec: |
+        if ! command -v fzf >/dev/null 2>&1; then
+          apt-get update && \
+          apt-get install -y --no-install-recommends fzf && \
+          rm -rf /var/lib/apt/lists/*
+          echo "✔️ fzf installed via post-start hook."
+        fi

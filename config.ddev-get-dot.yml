@@ -1,3 +1,4 @@
+name: ddev-get-dot
 webimage_extra_packages:
   - fzf
 

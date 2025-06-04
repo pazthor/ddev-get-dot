@@ -86,7 +86,7 @@ ddev_version_constraint: ""
 
 # List of add-on names that this add-on depends on
 dependencies:
-  - fzf
+  # - redis
 
 # DDEV environment variables can be interpolated into these actions.
 # post_install_actions are executed in the context of the target project's .ddev directory.

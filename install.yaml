@@ -59,7 +59,7 @@ pre_install_actions:
 # If you use directories, they must be directories that are managed
 # by this add-on, or removal could remove things that are not owned by it
 project_files:
-  - config.ddev-get-dot.yml
+  # - config.ddev-get-dot.yml
   - docker-compose.dot.yaml
   - commands/web/dot
   # - web-build/Dockerfile.addon-template
@@ -86,7 +86,7 @@ ddev_version_constraint: ""
 
 # List of add-on names that this add-on depends on
 dependencies:
-  # - redis
+  - fzf
 
 # DDEV environment variables can be interpolated into these actions.
 # post_install_actions are executed in the context of the target project's .ddev directory.

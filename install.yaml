@@ -1,44 +1,35 @@
-name: dot
+# install.yaml for pazthor/ddev-get-dot
+# https://ddev.readthedocs.io/en/stable/users/extend/additional-services/#sections-and-features-of-ddev-get-add-on-install
+
+name: pazthor/ddev-get-dot
 
 description: "Installs the 'dot' command and ensures fzf is present via a post-start hook"
 
+# Files to copy into the project’s .ddev directory
 project_files:
-  # Merge our hook + env-vars into the existing .ddev/config.yaml
+  # Merge config.ddev-get-dot.yaml into .ddev/config.yaml
   - source: config.ddev-get-dot.yaml
     target: .ddev/config.yaml
     merge: true
-
-  # Copy your docker-compose override if needed (but avoid placing DDEV keys here)
-  # Remove this entry if you do not have a valid docker-compose override for this add-on
-  # - source: docker-compose.dot.yaml
-  #   target: .ddev/docker-compose.dot.yaml
 
   # Copy the 'dot' launcher into .ddev/commands/web/dot
   - source: commands/web/dot
     target: .ddev/commands/web/dot
 
-# List of files and directories to be copied into the global .ddev directory (probably not used)
+# Files to copy into the global .ddev directory (not used here)
 global_files: []
 
 ddev_version_constraint: ""
 
 dependencies: []
 
+# Actions to run after the add-on is installed (in .ddev directory)
 post_install_actions:
   # Ensure the 'dot' script is executable after install
   - exec: |
       chmod +x ${DDEV_APPROOT}/.ddev/commands/web/dot
 
+# Actions to run when the add-on is removed
 removal_actions: []
 
-# Hooks to run after the container starts
-# These are merged into the project's .ddev/config.yaml, not into a compose file
-hooks:
-  post-start:
-    - exec: |
-        if ! command -v fzf >/dev/null 2>&1; then
-          apt-get update && \
-          apt-get install -y --no-install-recommends fzf && \
-          rm -rf /var/lib/apt/lists/*
-          echo "✔️ fzf installed via post-start hook."
-        fi
+# Note: hooks (e.g., post-start) belong in config.ddev-get-dot.yaml, not here.

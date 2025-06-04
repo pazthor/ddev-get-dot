@@ -7,7 +7,7 @@ description: "Installs the 'dot' command and ensures fzf is present via a post-s
 
 # Files to copy into the project’s .ddev directory
 project_files:
-  # Merge config.ddev-get-dot.yaml into .ddev/config.yaml
+  # config.ddev-get-dot.yaml contains web_environment and hooks
   - source: config.ddev-get-dot.yaml
     target: .ddev/config.yaml
     merge: true
@@ -25,9 +25,10 @@ dependencies: []
 
 # Actions to run after the add-on is installed (in .ddev directory)
 post_install_actions:
-  - "chmod +x ${DDEV_APPROOT}/.ddev/commands/web/dot"
+  # Ensure the 'dot' script is executable
+  - "chmod +x .ddev/commands/web/dot"
 
 # Actions to run when the add-on is removed
 removal_actions:
-  # Example: remove command if unmodified
-  - "rm -f ${DDEV_APPROOT}/.ddev/commands/web/dot"
+  # Remove the 'dot' command if it was unmodified
+  - "rm -f .ddev/commands/web/dot"

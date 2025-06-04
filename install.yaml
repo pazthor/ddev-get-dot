@@ -25,11 +25,9 @@ dependencies: []
 
 # Actions to run after the add-on is installed (in .ddev directory)
 post_install_actions:
-  # Ensure the 'dot' script is executable after install
-  - exec: |
-      chmod +x ${DDEV_APPROOT}/.ddev/commands/web/dot
+  - "chmod +x ${DDEV_APPROOT}/.ddev/commands/web/dot"
 
 # Actions to run when the add-on is removed
-removal_actions: []
-
-# Note: hooks (e.g., post-start) belong in config.ddev-get-dot.yaml, not here.
+removal_actions:
+  # Example: remove command if unmodified
+  - "rm -f ${DDEV_APPROOT}/.ddev/commands/web/dot"

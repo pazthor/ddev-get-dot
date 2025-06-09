@@ -7,7 +7,9 @@ description: "Installs the 'dot' command and ensures fzf is present via a post-s
 
 # Files to copy into the project's .ddev directory
 project_files:
-  - config.ddev-get-dot.yml
+  - source: config.ddev-get-dot.yml
+    target: .ddev/config.yaml
+    merge: true
   - commands/web/dot
 
 # Files to copy into the global .ddev directory (not used here)
@@ -19,8 +21,7 @@ dependencies: []
 
 # Actions to run after the add-on is installed (in .ddev directory)
 post_install_actions:
-  # Merge the addon's config into the main config file
-  - "ddev config --yaml-merge .ddev/config.ddev-get-dot.yml"
+
   # Clean up the copied config file
   - "rm .ddev/config.ddev-get-dot.yml"
   # Ensure the 'dot' script is executable

@@ -77,3 +77,87 @@ SCRIPT_DIR="$ROOT_PATH/$SCRIPT_PATH"
   exit 1
 }
 ```
+
+# ddev-get-dot
+
+This DDEV add-on provides a `ddev dot` command to easily execute scripts from a specific directory in your project. It uses `fzf` to provide an interactive script selection menu.
+
+## Features
+
+*   Run scripts located in your project.
+*   Interactive script selection using `fzf`.
+*   Organize scripts by "context" (subdirectories).
+*   Automatic installation of `fzf` in the web container.
+*   Configurable script directory.
+
+## Installation
+
+1.  Install the add-on:
+    ```bash
+    ddev get pazthor/ddev-get-dot
+    ```
+2.  Restart your DDEV project:
+    ```bash
+    ddev restart
+    ```
+
+## Usage
+
+The `dot` command allows you to execute scripts located in a designated script directory within your project (by default `tools/scripts`). Scripts are organized in subdirectories called "contexts".
+
+For example, let's say you have the following directory structure:
+
+```
+tools/
+└── scripts/
+    ├── laravel/
+    │   ├── migrate.sh
+    │   └── seed.sh
+    └── node/
+        └── build.js
+```
+
+You can use the `ddev dot` command in the following ways:
+
+*   **`ddev dot`**: Interactively select a context (`laravel` or `node`), then a script to execute.
+*   **`ddev dot laravel`**: Interactively select a script from the `laravel` context (`migrate.sh` or `seed.sh`).
+*   **`ddev dot laravel migrate.sh`**: Execute the `migrate.sh` script directly.
+*   **`ddev dot laravel migrate.sh --force`**: Execute the script with arguments.
+
+## Configuration
+
+### Script Directory
+
+By default, the `dot` command looks for scripts in the `tools/scripts` directory inside your project root (`/var/www/html/tools/scripts` inside the container).
+
+You can customize this by setting the following environment variables in your `.ddev/config.yaml`:
+
+```yaml
+web_environment:
+  - DDEV_DOT_ROOT_PATH=/var/www/html/packages
+  - DDEV_DOT_SCRIPT_PATH=custom/tools
+```
+
+This would make the `dot` command look for scripts in `/var/www/html/packages/custom/tools`.
+
+### Creating Scripts
+
+Make sure your scripts are executable. For example, to create a simple script:
+
+```bash
+mkdir -p tools/scripts/hello
+echo -e '#!/bin/bash\necho "Hello, $1!"' > tools/scripts/hello/world.sh
+chmod +x tools/scripts/hello/world.sh
+```
+
+Now you can run it with `ddev dot hello world.sh DDEV`.
+
+## How it works
+
+*   The add-on installs the `dot` command into the `.ddev/commands/web` directory of your project.
+*   It adds a `post-start` hook to your `.ddev/config.yaml` that installs `fzf` in the web container upon `ddev start`.
+
+## Contributing
+
+Contributions are welcome! Please open an issue or pull request.
+

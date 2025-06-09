@@ -3,17 +3,22 @@
 set -eo pipefail
 
 ## #ddev-generated
-## Description: executes a script from tools/scripts/laravel
-## Usage: dot  [context] [script] [args…]
+## Description: executes a script from tools/scripts
+## Usage: dot [context] [script] [args…]
 ## Example: ddev dot laravel migrate
-## ExecRaw: true
-## HostWorkingDir: true
-## TODO move to web but investigate how to install dependencies(fzf docspar)
 
+command -v fzf >/dev/null 2>&1 || {
+  echo "❌ fzf is not installed in the web container." >&2
+  echo "It should be installed by the post-start hook." >&2
+  exit 1
+}
 
-command -v fzf >/dev/null 2>&1 || { echo "❌ Install fzf" >&2; exit 1; }
 readonly SCRIPT_DIR="/var/www/html/tools/scripts"
-[[ -d "$SCRIPT_DIR" ]] || { echo "❌ $SCRIPT_DIR not found" >&2; exit 1; }
+
+[[ -d "$SCRIPT_DIR" ]] || {
+  echo "❌ scripts directory not found at $SCRIPT_DIR" >&2
+  exit 1
+}
 
 # 1) full non-interactive: context + script
 if [[ $# -ge 2 ]]; then

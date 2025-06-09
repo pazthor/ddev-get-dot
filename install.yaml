@@ -10,7 +10,8 @@ project_files:
   - source: config.ddev-get-dot.yml
     target: .ddev/config.yaml
     merge: true
-  - commands/web/dot
+  - source: commands/web/dot
+    target: .ddev/commands/web/dot
 
 # Files to copy into the global .ddev directory (not used here)
 global_files: []
@@ -21,9 +22,6 @@ dependencies: []
 
 # Actions to run after the add-on is installed (in .ddev directory)
 post_install_actions:
-
-  # Clean up the copied config file
-  - "rm .ddev/config.ddev-get-dot.yml"
   # Ensure the 'dot' script is executable
   - "chmod +x .ddev/commands/web/dot"
 

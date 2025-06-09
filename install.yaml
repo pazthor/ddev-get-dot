@@ -20,9 +20,9 @@ dependencies: []
 # Actions to run after the add-on is installed (in .ddev directory)
 post_install_actions:
   # Merge the addon's config into the main config file
-  - "ddev config --yaml-merge .ddev/config.ddev-get-dot.yaml"
+  - "ddev config --yaml-merge .ddev/config.ddev-get-dot.yml"
   # Clean up the copied config file
-  - "rm .ddev/config.ddev-get-dot.yaml"
+  - "rm .ddev/config.ddev-get-dot.yml"
   # Ensure the 'dot' script is executable
   - "chmod +x .ddev/commands/web/dot"
 

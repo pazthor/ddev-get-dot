@@ -5,16 +5,10 @@ name: pazthor/ddev-get-dot
 
 description: "Installs the 'dot' command and ensures fzf is present via a post-start hook"
 
-# Files to copy into the project’s .ddev directory
+# Files to copy into the project's .ddev directory
 project_files:
-  # config.ddev-get-dot.yaml contains web_environment and hooks
-  - source: config.ddev-get-dot.yaml
-    target: .ddev/config.yaml
-    merge: true
-
-  # Copy the 'dot' launcher into .ddev/commands/web/dot
-  - source: commands/web/dot
-    target: .ddev/commands/web/dot
+  - config.ddev-get-dot.yaml
+  - commands/web/dot
 
 # Files to copy into the global .ddev directory (not used here)
 global_files: []
@@ -25,6 +19,10 @@ dependencies: []
 
 # Actions to run after the add-on is installed (in .ddev directory)
 post_install_actions:
+  # Merge the addon's config into the main config file
+  - "ddev config --yaml-merge .ddev/config.ddev-get-dot.yaml"
+  # Clean up the copied config file
+  - "rm .ddev/config.ddev-get-dot.yaml"
   # Ensure the 'dot' script is executable
   - "chmod +x .ddev/commands/web/dot"
 

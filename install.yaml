@@ -7,7 +7,7 @@ description: "Installs the 'dot' command and ensures fzf is present via a post-s
 
 # Files to copy into the project's .ddev directory
 project_files:
-  - config.ddev-get-dot.yaml
+  - config.ddev-get-dot.yml
   - commands/web/dot
 
 # Files to copy into the global .ddev directory (not used here)

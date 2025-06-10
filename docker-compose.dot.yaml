@@ -5,9 +5,9 @@
 webimage_extra_packages:
   - fzf
 
-# Environment variables for the dot command
-web_environment:
-  # default mountpoint inside the container
-  DDEV_DOT_ROOT_PATH: /var/www/html
-  # default location of your scripts relative to project root
-  DDEV_DOT_SCRIPT_PATH: tools/scripts
+# Add environment variables to the web service
+services:
+  web:
+    environment:
+      DDEV_DOT_ROOT_PATH: /var/www/html
+      DDEV_DOT_SCRIPT_PATH: tools/scripts

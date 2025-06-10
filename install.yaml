@@ -10,7 +10,6 @@ description: "Installs the 'dot' command and ensures fzf is present"
 # advanced source/target/merge syntax.
 project_files:
   - commands/web/dot
-  - config.ddev-get-dot.yml
   - docker-compose.dot.yaml
 
 # Files to copy into the global .ddev directory (not used here)
@@ -22,8 +21,6 @@ dependencies: []
 
 # Actions to run after the add-on is installed (in .ddev directory)
 post_install_actions:
-  - ddev config --yaml-merge .ddev/config.ddev-get-dot.yml
-  - rm .ddev/config.ddev-get-dot.yml
   - chmod +x .ddev/commands/web/dot
 
 # Actions to run when the add-on is removed

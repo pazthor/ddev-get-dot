@@ -1,39 +1,85 @@
-name: Release
+name: release
 
-# 1️⃣ Trigger when a tag is pushed
 on:
   push:
-    tags:
-      - '**'             # match any tag like v1.2.3 :contentReference[oaicite:3]{index=3}
+    branches: [ main ]
+    paths-ignore:
+      - 'README.md'
+      - '.github/workflows/tests.yml'
+
+permissions:
+  contents: write
 
 jobs:
-  create_release:
-    name: Create Release
+  release:
     runs-on: ubuntu-latest
-
+    if: "!contains(github.event.head_commit.message, '[skip release]')"
+    
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4  # ensure code is available :contentReference[oaicite:4]{index=4}
-
-      - name: Get release tag
-        id: vars
-        run: echo "RELEASE_TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
-
-      - name: Create GitHub Release
-        uses: actions/create-release@v1  # official action to create a release :contentReference[oaicite:5]{index=5}
+      - name: Checkout
+        uses: actions/checkout@v4
         with:
-          tag_name: ${{ env.RELEASE_TAG }}
-          release_name: Release ${{ env.RELEASE_TAG }}
-          body_path: RELEASE_NOTES.md     # optionally read body from a file
-          draft: false
-          prerelease: false
+          fetch-depth: 0
+
+      - name: Get version from commit
+        id: version
+        run: |
+          # Extract version from commit message if present (e.g., "v1.2.3" or "1.2.3")
+          VERSION=$(echo "${{ github.event.head_commit.message }}" | grep -oE 'v?[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+          
+          if [ -z "$VERSION" ]; then
+            # If no version in commit message, generate one based on date
+            VERSION="v$(date +%Y.%m.%d)-$(echo ${{ github.sha }} | cut -c1-7)"
+          fi
+          
+          # Ensure version starts with 'v'
+          if [[ ! "$VERSION" =~ ^v ]]; then
+            VERSION="v$VERSION"
+          fi
+          
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Version will be: $VERSION"
+
+      - name: Check if tag exists
+        id: tag_check
+        run: |
+          if git tag | grep -q "^${{ steps.version.outputs.version }}$"; then
+            echo "Tag ${{ steps.version.outputs.version }} already exists"
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create Release
+        if: steps.tag_check.outputs.exists == 'false'
+        uses: actions/create-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Upload Release Asset
-        uses: actions/upload-release-asset@v1  # attach compiled binaries or assets :contentReference[oaicite:6]{index=6}
         with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./dist/app.zip
-          asset_name: app-${{ env.RELEASE_TAG }}.zip
-          asset_content_type: application/zip
+          tag_name: ${{ steps.version.outputs.version }}
+          release_name: Release ${{ steps.version.outputs.version }}
+          body: |
+            ## Changes
+            ${{ github.event.head_commit.message }}
+            
+            ## Installation
+            ```bash
+            ddev get pazthor/ddev-get-dot
+            ```
+            
+            ## What's included
+            - `ddev dot` command for interactive script execution
+            - Automatic fzf installation for fuzzy finding
+            - Support for organized script directories
+            
+            **Full Changelog**: https://github.com/${{ github.repository }}/compare/${{ github.event.before }}...${{ github.sha }}
+          draft: false
+          prerelease: false
+
+      - name: Output result
+        run: |
+          if [ "${{ steps.tag_check.outputs.exists }}" == "true" ]; then
+            echo "✅ Skipped: Tag ${{ steps.version.outputs.version }} already exists"
+          else
+            echo "✅ Created: Release ${{ steps.version.outputs.version }}"
+          fi

@@ -1,52 +1,423 @@
 #ddev-generated
 #!/bin/bash
-set -eo pipefail
+
+#
+# DDEV Dot Command - Interactive Script Execution Tool
+# 
+# Description: Executes scripts from a configurable directory with interactive selection
+# Usage: dot [context] [script] [args...]
+# Example: ddev dot laravel migrate --force
+#
+# Environment Variables:
+#   DDEV_DOT_ROOT_PATH   - Base path for script discovery (default: /var/www/html)
+#   DDEV_DOT_SCRIPT_PATH - Relative path to scripts (default: tools/scripts)
+#   DDEV_DOT_DEBUG       - Enable debug mode (default: false)
+#
 
 ## #ddev-generated
-## Description: executes a script from tools/scripts
-## Usage: dot [context] [script] [args…]
-## Example: ddev dot laravel migrate
+## Description: executes a script from tools/scripts with interactive selection
+## Usage: dot [context] [script] [args...]
+## Example: ddev dot laravel migrate --force
 
-command -v fzf >/dev/null 2>&1 || {
-  echo "❌ fzf is not installed in the web container." >&2
-  echo "It should be installed by the post-start hook." >&2
-  exit 1
+set -euo pipefail
+
+#==============================================================================
+# CONSTANTS AND CONFIGURATION
+#==============================================================================
+
+readonly SCRIPT_NAME="$(basename "$0")"
+readonly VERSION="2.0.0"
+
+# Exit codes
+readonly EXIT_SUCCESS=0
+readonly EXIT_GENERAL_ERROR=1
+readonly EXIT_FZF_NOT_FOUND=10
+readonly EXIT_SCRIPT_DIR_NOT_FOUND=11
+readonly EXIT_CONTEXT_NOT_FOUND=12
+readonly EXIT_SCRIPT_NOT_FOUND=13
+readonly EXIT_SCRIPT_NOT_EXECUTABLE=14
+readonly EXIT_USER_CANCELLED=15
+readonly EXIT_INVALID_ARGUMENTS=16
+
+# Colors for output
+readonly RED='\033[0;31m'
+readonly GREEN='\033[0;32m'
+readonly YELLOW='\033[1;33m'
+readonly BLUE='\033[0;34m'
+readonly CYAN='\033[0;36m'
+readonly GRAY='\033[0;37m'
+readonly NC='\033[0m' # No Color
+
+# Configuration with environment variable support
+readonly ROOT_PATH="${DDEV_DOT_ROOT_PATH:-/var/www/html}"
+readonly SCRIPT_PATH="${DDEV_DOT_SCRIPT_PATH:-tools/scripts}"
+readonly SCRIPT_DIR="$ROOT_PATH/$SCRIPT_PATH"
+readonly DEBUG="${DDEV_DOT_DEBUG:-false}"
+
+#==============================================================================
+# UTILITY FUNCTIONS
+#==============================================================================
+
+# Print colored log messages
+log_error() {
+    echo -e "${RED}❌ Error: $1${NC}" >&2
 }
 
-readonly SCRIPT_DIR="/var/www/html/tools/scripts"
-
-[[ -d "$SCRIPT_DIR" ]] || {
-  echo "❌ scripts directory not found at $SCRIPT_DIR" >&2
-  exit 1
+log_warning() {
+    echo -e "${YELLOW}⚠️  Warning: $1${NC}" >&2
 }
 
-# 1) full non-interactive: context + script
-if [[ $# -ge 2 ]]; then
-  ctx="$1"; script="$2"; shift 2
-  target="$SCRIPT_DIR/$ctx/$script"
-  [[ -d "$SCRIPT_DIR/$ctx" ]] || { echo "❌ Context '$ctx' not found." >&2; exit 2; }
-  [[ -x "$target" ]]          || { echo "❌ '$script' not executable." >&2; exit 3; }
-  exec "$target" "$@"
-fi
+log_info() {
+    echo -e "${BLUE}ℹ️  $1${NC}"
+}
 
-# 2) context-only: pick script within a given context
-if [[ $# -eq 1 ]]; then
-  ctx="$1"
-  [[ -d "$SCRIPT_DIR/$ctx" ]] || { echo "❌ Context '$ctx' not found." >&2; exit 2; }
-  script=$(find "$SCRIPT_DIR/$ctx" -type f -printf '%f\n' \
-             | fzf \
-                 --preview="cat $SCRIPT_DIR/$ctx/{}" \
-                 --prompt="Script in $ctx> ") \
-    || exit
-  exec "$SCRIPT_DIR/$ctx/$script"
-fi
+log_success() {
+    echo -e "${GREEN}✅ $1${NC}"
+}
 
-# 3) no args: pick context then pick script
-ctx=$(find "$SCRIPT_DIR" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' \
-      | fzf --prompt="Context> ") || exit
-script=$(find "$SCRIPT_DIR/$ctx" -type f -printf '%f\n' \
-         | fzf \
-             --preview="cat $SCRIPT_DIR/$ctx/{}" \
-             --prompt="Script in $ctx> ") \
-  || exit
-exec "$SCRIPT_DIR/$ctx/$script"
+log_debug() {
+    [[ "$DEBUG" == "true" ]] && echo -e "${GRAY}🐛 Debug: $1${NC}" >&2
+}
+
+# Print usage information
+show_usage() {
+    cat << EOF
+${SCRIPT_NAME} v${VERSION} - Interactive Script Execution Tool
+
+USAGE:
+    ${SCRIPT_NAME}                          Interactive mode: select context, then script
+    ${SCRIPT_NAME} <context>                Browse scripts in specific context
+    ${SCRIPT_NAME} <context> <script>       Execute script directly
+    ${SCRIPT_NAME} <context> <script> ...   Execute script with arguments
+    ${SCRIPT_NAME} -h|--help               Show this help message
+    ${SCRIPT_NAME} -v|--version            Show version information
+
+EXAMPLES:
+    ${SCRIPT_NAME}                          # Browse all contexts and scripts
+    ${SCRIPT_NAME} database                 # Browse scripts in 'database' context
+    ${SCRIPT_NAME} database migrate.sh      # Execute migrate.sh directly
+    ${SCRIPT_NAME} frontend build.sh --prod # Execute with arguments
+
+CONFIGURATION:
+    Script directory: ${SCRIPT_DIR}
+    
+    Environment variables:
+        DDEV_DOT_ROOT_PATH   = ${ROOT_PATH}
+        DDEV_DOT_SCRIPT_PATH = ${SCRIPT_PATH}
+        DDEV_DOT_DEBUG       = ${DEBUG}
+
+For more information, visit: https://github.com/pazthor/ddev-get-dot
+EOF
+}
+
+# Show version information
+show_version() {
+    echo "${SCRIPT_NAME} version ${VERSION}"
+}
+
+#==============================================================================
+# VALIDATION FUNCTIONS
+#==============================================================================
+
+# Check if fzf is available
+validate_fzf() {
+    log_debug "Checking for fzf availability"
+    
+    if ! command -v fzf >/dev/null 2>&1; then
+        log_error "fzf is not installed in the web container"
+        log_info "It should be installed automatically by the post-start hook"
+        log_info "Try running 'ddev restart' to trigger the installation"
+        return $EXIT_FZF_NOT_FOUND
+    fi
+    
+    log_debug "fzf found and available"
+    return $EXIT_SUCCESS
+}
+
+# Validate script directory exists
+validate_script_directory() {
+    log_debug "Validating script directory: $SCRIPT_DIR"
+    
+    if [[ ! -d "$SCRIPT_DIR" ]]; then
+        log_error "Scripts directory not found at: $SCRIPT_DIR"
+        log_info "Please create the directory structure:"
+        log_info "  mkdir -p $SCRIPT_PATH"
+        log_info "  mkdir -p $SCRIPT_PATH/your-context"
+        log_info "Or configure custom paths using environment variables"
+        return $EXIT_SCRIPT_DIR_NOT_FOUND
+    fi
+    
+    log_debug "Script directory exists"
+    return $EXIT_SUCCESS
+}
+
+# Validate context directory exists
+validate_context() {
+    local context="$1"
+    local context_dir="$SCRIPT_DIR/$context"
+    
+    log_debug "Validating context: $context"
+    
+    if [[ ! -d "$context_dir" ]]; then
+        log_error "Context '$context' not found"
+        log_info "Available contexts:"
+        list_contexts | sed 's/^/  /'
+        return $EXIT_CONTEXT_NOT_FOUND
+    fi
+    
+    log_debug "Context '$context' is valid"
+    return $EXIT_SUCCESS
+}
+
+# Validate script exists and is executable
+validate_script() {
+    local context="$1"
+    local script="$2"
+    local script_path="$SCRIPT_DIR/$context/$script"
+    
+    log_debug "Validating script: $context/$script"
+    
+    if [[ ! -f "$script_path" ]]; then
+        log_error "Script '$script' not found in context '$context'"
+        log_info "Available scripts in '$context':"
+        list_scripts_in_context "$context" | sed 's/^/  /'
+        return $EXIT_SCRIPT_NOT_FOUND
+    fi
+    
+    if [[ ! -x "$script_path" ]]; then
+        log_error "Script '$script' is not executable"
+        log_info "Make it executable with: chmod +x $SCRIPT_PATH/$context/$script"
+        return $EXIT_SCRIPT_NOT_EXECUTABLE
+    fi
+    
+    log_debug "Script '$context/$script' is valid and executable"
+    return $EXIT_SUCCESS
+}
+
+#==============================================================================
+# DISCOVERY FUNCTIONS
+#==============================================================================
+
+# List available contexts (subdirectories)
+list_contexts() {
+    find "$SCRIPT_DIR" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' 2>/dev/null | sort
+}
+
+# List executable scripts in a context
+list_scripts_in_context() {
+    local context="$1"
+    local context_dir="$SCRIPT_DIR/$context"
+    
+    find "$context_dir" -type f -executable -printf '%f\n' 2>/dev/null | sort
+}
+
+# Check if there are any contexts available
+has_contexts() {
+    local context_count
+    context_count=$(list_contexts | wc -l)
+    [[ $context_count -gt 0 ]]
+}
+
+# Check if a context has any executable scripts
+has_scripts_in_context() {
+    local context="$1"
+    local script_count
+    script_count=$(list_scripts_in_context "$context" | wc -l)
+    [[ $script_count -gt 0 ]]
+}
+
+#==============================================================================
+# INTERACTIVE SELECTION FUNCTIONS
+#==============================================================================
+
+# Interactive context selection using fzf
+select_context_interactive() {
+    log_debug "Starting interactive context selection"
+    
+    if ! has_contexts; then
+        log_error "No contexts found in $SCRIPT_DIR"
+        log_info "Create a context directory and add some scripts:"
+        log_info "  mkdir -p $SCRIPT_PATH/your-context"
+        log_info "  echo '#!/bin/bash' > $SCRIPT_PATH/your-context/example.sh"
+        log_info "  chmod +x $SCRIPT_PATH/your-context/example.sh"
+        return $EXIT_CONTEXT_NOT_FOUND
+    fi
+    
+    local selected_context
+    selected_context=$(list_contexts | fzf \
+        --prompt="Select Context ❯ " \
+        --header="Available script contexts" \
+        --height=40% \
+        --border \
+        --preview="find $SCRIPT_DIR/{} -type f -executable -printf '%f\n' 2>/dev/null | head -10" \
+        --preview-label="Scripts in context" \
+    ) || {
+        log_debug "User cancelled context selection"
+        return $EXIT_USER_CANCELLED
+    }
+    
+    echo "$selected_context"
+}
+
+# Interactive script selection using fzf
+select_script_interactive() {
+    local context="$1"
+    
+    log_debug "Starting interactive script selection for context: $context"
+    
+    if ! has_scripts_in_context "$context"; then
+        log_error "No executable scripts found in context '$context'"
+        log_info "Add some executable scripts to:"
+        log_info "  $SCRIPT_PATH/$context/"
+        return $EXIT_SCRIPT_NOT_FOUND
+    fi
+    
+    local selected_script
+    selected_script=$(list_scripts_in_context "$context" | fzf \
+        --prompt="Select Script in $context ❯ " \
+        --header="Executable scripts in $context" \
+        --height=40% \
+        --border \
+        --preview="bat --style=numbers --color=always $SCRIPT_DIR/$context/{} 2>/dev/null || cat $SCRIPT_DIR/$context/{} 2>/dev/null || echo 'Preview not available'" \
+        --preview-label="Script preview" \
+    ) || {
+        log_debug "User cancelled script selection"
+        return $EXIT_USER_CANCELLED
+    }
+    
+    echo "$selected_script"
+}
+
+#==============================================================================
+# EXECUTION FUNCTIONS
+#==============================================================================
+
+# Execute a script with given arguments
+execute_script() {
+    local context="$1"
+    local script="$2"
+    shift 2  # Remove context and script from arguments
+    
+    local script_path="$SCRIPT_DIR/$context/$script"
+    
+    log_debug "Executing script: $script_path with args: $*"
+    log_info "Executing: $context/$script"
+    
+    # Change to the script's directory for execution
+    local script_dir
+    script_dir="$(dirname "$script_path")"
+    
+    # Execute the script with all remaining arguments
+    cd "$script_dir" && exec "$script_path" "$@"
+}
+
+#==============================================================================
+# MAIN EXECUTION MODES
+#==============================================================================
+
+# Mode 1: Direct execution - context + script + args
+mode_direct_execution() {
+    local context="$1"
+    local script="$2"
+    shift 2
+    
+    log_debug "Mode: Direct execution"
+    
+    validate_context "$context" || return $?
+    validate_script "$context" "$script" || return $?
+    
+    execute_script "$context" "$script" "$@"
+}
+
+# Mode 2: Context selection - browse scripts in given context
+mode_context_browse() {
+    local context="$1"
+    
+    log_debug "Mode: Context browse"
+    
+    validate_context "$context" || return $?
+    
+    local script
+    script=$(select_script_interactive "$context") || return $?
+    
+    execute_script "$context" "$script"
+}
+
+# Mode 3: Full interactive - select context then script
+mode_full_interactive() {
+    log_debug "Mode: Full interactive"
+    
+    local context
+    context=$(select_context_interactive) || return $?
+    
+    local script
+    script=$(select_script_interactive "$context") || return $?
+    
+    execute_script "$context" "$script"
+}
+
+#==============================================================================
+# ARGUMENT PARSING
+#==============================================================================
+
+# Parse command line arguments and determine execution mode
+parse_arguments() {
+    case $# in
+        0)
+            # No arguments: full interactive mode
+            mode_full_interactive
+            ;;
+        1)
+            case "$1" in
+                -h|--help)
+                    show_usage
+                    exit $EXIT_SUCCESS
+                    ;;
+                -v|--version)
+                    show_version
+                    exit $EXIT_SUCCESS
+                    ;;
+                *)
+                    # Single argument: context browse mode
+                    mode_context_browse "$1"
+                    ;;
+            esac
+            ;;
+        *)
+            # Multiple arguments: direct execution mode
+            mode_direct_execution "$@"
+            ;;
+    esac
+}
+
+#==============================================================================
+# MAIN FUNCTION
+#==============================================================================
+
+main() {
+    local exit_code
+    
+    log_debug "Starting $SCRIPT_NAME v$VERSION"
+    log_debug "Script directory: $SCRIPT_DIR"
+    log_debug "Arguments: $*"
+    
+    # Run initial validations
+    validate_fzf || exit $?
+    validate_script_directory || exit $?
+    
+    # Parse arguments and execute appropriate mode
+    parse_arguments "$@"
+    exit_code=$?
+    
+    log_debug "Execution completed with exit code: $exit_code"
+    exit $exit_code
+}
+
+#==============================================================================
+# SCRIPT ENTRY POINT
+#==============================================================================
+
+# Only run main if script is executed directly (not sourced)
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    main "$@"
+fi

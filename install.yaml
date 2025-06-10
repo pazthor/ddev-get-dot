@@ -11,7 +11,6 @@ description: "Installs the 'dot' command and ensures fzf is present"
 project_files:
   - commands/web/dot
   - config.ddev-get-dot.yml
-  - docker-compose.dot.yaml
 
 # Files to copy into the global .ddev directory (not used here)
 global_files: []

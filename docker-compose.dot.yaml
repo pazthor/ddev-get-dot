@@ -1,6 +1,6 @@
 #ddev-generated
 # Configuration for ddev-get-dot add-on
 
-# Install fzf via package manager for better reliability
-webimage_extra_packages:
-  - fzf
+# This file is required to be present but contains no docker-compose specific configuration
+# All configuration has been moved to config.ddev-get-dot.yml
+version: '3.6'

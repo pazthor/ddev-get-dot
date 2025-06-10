@@ -1,11 +1,11 @@
 name: release
 
 on:
-  push:
+  workflow_run:
+    workflows: ["tests"]
     branches: [ main ]
-    paths-ignore:
-      - 'README.md'
-      - '.github/workflows/tests.yml'
+    types: 
+      - completed
 
 permissions:
   contents: write
@@ -13,7 +13,9 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-latest
-    if: "!contains(github.event.head_commit.message, '[skip release]')"
+    if: |
+      github.event.workflow_run.conclusion == 'success' &&
+      !contains(github.event.workflow_run.head_commit.message, '[skip release]')
     
     steps:
       - name: Checkout
@@ -25,11 +27,11 @@ jobs:
         id: version
         run: |
           # Extract version from commit message if present (e.g., "v1.2.3" or "1.2.3")
-          VERSION=$(echo "${{ github.event.head_commit.message }}" | grep -oE 'v?[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+          VERSION=$(echo "${{ github.event.workflow_run.head_commit.message }}" | grep -oE 'v?[0-9]+\.[0-9]+\.[0-9]+' | head -1)
           
           if [ -z "$VERSION" ]; then
             # If no version in commit message, generate one based on date
-            VERSION="v$(date +%Y.%m.%d)-$(echo ${{ github.sha }} | cut -c1-7)"
+            VERSION="v$(date +%Y.%m.%d)-$(echo ${{ github.event.workflow_run.head_sha }} | cut -c1-7)"
           fi
           
           # Ensure version starts with 'v'
@@ -60,7 +62,7 @@ jobs:
           release_name: Release ${{ steps.version.outputs.version }}
           body: |
             ## Changes
-            ${{ github.event.head_commit.message }}
+            ${{ github.event.workflow_run.head_commit.message }}
             
             ## Installation
             ```bash
@@ -72,7 +74,9 @@ jobs:
             - Automatic fzf installation for fuzzy finding
             - Support for organized script directories
             
-            **Full Changelog**: https://github.com/${{ github.repository }}/compare/${{ github.event.before }}...${{ github.sha }}
+            **Tests Status**: ✅ All tests passed
+            
+            **Full Changelog**: https://github.com/${{ github.repository }}/compare/${{ github.event.workflow_run.head_commit.id }}...${{ github.event.workflow_run.head_sha }}
           draft: false
           prerelease: false
 
@@ -81,5 +85,5 @@ jobs:
           if [ "${{ steps.tag_check.outputs.exists }}" == "true" ]; then
             echo "✅ Skipped: Tag ${{ steps.version.outputs.version }} already exists"
           else
-            echo "✅ Created: Release ${{ steps.version.outputs.version }}"
+            echo "✅ Created: Release ${{ steps.version.outputs.version }} (Tests passed)"
           fi

@@ -42,7 +42,9 @@
 ### Install from GitHub
 
 ```bash
-ddev get pazthor/ddev-get-dot
+ddev add-on get pazthor/ddev-get-dot
+```
+```
 ddev restart
 ```
 

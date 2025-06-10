@@ -1,3 +1,6 @@
+webimage_extra_packages:
+  - fzf
+
 web_environment:
   - DDEV_DOT_ROOT_PATH=/var/www/html
   - DDEV_DOT_SCRIPT_PATH=tools/scripts 

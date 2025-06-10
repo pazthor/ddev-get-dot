@@ -29,6 +29,7 @@
 - [Advanced Usage](#advanced-usage)
 - [Best Practices](#best-practices)
 - [Troubleshooting](#troubleshooting)
+- [Local Development and Testing](#local-development-and-testing)
 - [Contributing](#contributing)
 - [License](#license)
 
@@ -478,6 +479,10 @@ bash -x tools/scripts/context/script.sh
 2. **Verify container state**: `ddev describe`
 3. **Check script permissions**: `ls -la tools/scripts/context/`
 4. **Test script directly**: `ddev ssh` then `cd /var/www/html/tools/scripts && ls -la`
+
+## 🧪 Local Development and Testing
+
+For an overview of how the add-on works and instructions for running the test suite locally, read [docs/LOCAL_DEVELOPMENT.md](docs/LOCAL_DEVELOPMENT.md).
 
 ## 🤝 Contributing
 

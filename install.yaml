@@ -19,10 +19,6 @@ ddev_version_constraint: ""
 
 dependencies: []
 
-# Actions to run after the add-on is installed (in .ddev directory)
-post_install_actions:
-  - chmod +x .ddev/commands/web/dot
-
 # Actions to run when the add-on is removed
 removal_actions:
   - rm -f .ddev/commands/web/dot

@@ -4,10 +4,3 @@
 # Install fzf via package manager for better reliability
 webimage_extra_packages:
   - fzf
-
-# Add environment variables to the web service
-services:
-  web:
-    environment:
-      DDEV_DOT_ROOT_PATH: /var/www/html
-      DDEV_DOT_SCRIPT_PATH: tools/scripts

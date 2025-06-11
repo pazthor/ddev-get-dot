@@ -1,7 +1,7 @@
 # install.yaml for ddev-get-dot
 # https://ddev.readthedocs.io/en/stable/users/extend/additional-services/#sections-and-features-of-ddev-get-add-on-install
 
-name: ddev-get-dot
+name: dot
 
 description: "Installs the 'dot' command and ensures fzf is present"
 

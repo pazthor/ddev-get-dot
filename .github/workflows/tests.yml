@@ -4,8 +4,9 @@ on:
   push:
     branches: [ main ]
 
-  schedule:
-  - cron: '25 08 * * *'
+  # Disabled scheduled runs for low-activity project
+  # schedule:
+  # - cron: '25 08 * * *'
 
   workflow_dispatch:
     inputs:

@@ -24,6 +24,7 @@
 - [Prerequisites](#prerequisites)
 - [Installation](#installation)
 - [Quick Start](#quick-start)
+- [Laravel Projects](#-laravel-projects)
 - [Usage](#usage)
 - [Configuration](#configuration)
 - [Advanced Usage](#advanced-usage)
@@ -98,6 +99,59 @@ ddev restart
    # Direct execution
    ddev dot database migrate.sh
    ```
+
+## 🎯 Laravel Projects
+
+**Laravel developers:** We've created comprehensive production-ready scripts and best practices specifically for Laravel + DDEV workflows!
+
+### Quick Laravel Setup
+
+Copy our production-ready Laravel scripts to your project:
+
+```bash
+# Copy example scripts
+cp -r examples/laravel/scripts tools/
+find tools/scripts -type f -name "*.sh" -exec chmod +x {} \;
+
+# Start using them
+ddev dot
+```
+
+### What's Included
+
+- **Database Management**: Smart backups with compression and automatic cleanup
+- **Artisan Commands**: Migration workflows with automatic backups
+- **Testing**: Parallel test execution with coverage support
+- **Performance**: Complete optimization for production deployments
+- **Deployment**: Pre-deployment validation and health checks
+- **Queue Management**: Advanced queue worker scripts
+
+### Laravel-Specific Features
+
+```bash
+# Fresh migration with automatic backup
+ddev dot artisan migrate-fresh.sh
+
+# Database backup with compression
+ddev dot database backup.sh
+
+# Parallel testing with coverage
+ddev dot testing parallel.sh --coverage
+
+# Complete production optimization
+ddev dot performance optimize-all.sh
+```
+
+### Learn More
+
+📖 **[Read the complete Laravel Best Practices Guide →](docs/LARAVEL_BEST_PRACTICES.md)**
+
+The guide includes:
+- Production-ready script templates
+- Advanced patterns and workflows
+- CI/CD integration examples
+- Performance optimization techniques
+- Deployment preparation checklists
 
 ## 💡 Usage
 

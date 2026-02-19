@@ -191,7 +191,26 @@ ddev dot database seed.sh --class=UserSeeder
 
 # Execute script with complex arguments
 ddev dot frontend build.sh --mode=production --analyze
+
+# Slash notation (context/script in one argument)
+ddev dot proxy/setup
+ddev dot frontend/build.sh --prod
+
+# List all contexts and scripts (no fzf)
+ddev dot --list
 ```
+
+### Optional: Default context and artisan passthrough
+
+For monorepos or Laravel projects you can set a default context so `ddev dot <script>` runs without typing the context name, and an artisan path so `ddev dot artisan <args>` runs `php artisan` in that directory:
+
+```yaml
+# In .ddev/config.yaml web_environment:
+  - DDEV_DOT_DEFAULT_CONTEXT=laravel   # "ddev dot test" runs laravel/test
+  - DDEV_DOT_ARTISAN_PATH=apps/experiences-app   # "ddev dot artisan migrate" runs in that dir
+```
+
+Context directories whose name starts with `_` (e.g. `_lib`) are excluded from listing and interactive selection.
 
 ### Real-World Examples
 
@@ -240,6 +259,10 @@ Customize the script location by setting environment variables in your `.ddev/co
 web_environment:
   - DDEV_DOT_ROOT_PATH=/var/www/html          # Default project root
   - DDEV_DOT_SCRIPT_PATH=tools/scripts        # Default script path
+  # Optional: default context (e.g. "ddev dot test" runs <default>/test)
+  - DDEV_DOT_DEFAULT_CONTEXT=laravel
+  # Optional: path relative to ROOT_PATH for "ddev dot artisan ..."
+  - DDEV_DOT_ARTISAN_PATH=apps/experiences-app
 ```
 
 #### Alternative Configurations

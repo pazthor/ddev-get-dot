@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-## Description: Run scripts in tools/scripts/<context>/<script>
-## Usage: dot [context] [script] [args…] | dot --help | dot --setup
+## Description: Run scripts in tools/scripts/<context>/<script>; optional default context and artisan passthrough
+## Usage: dot [--list] | dot [context/script] [args…] | dot [context] [script] [args…] | dot artisan [artisan-args…]
 ## ExecRaw: true
 ## HostWorkingDir: true
 
@@ -20,6 +20,10 @@ readonly ROOT_PATH="${DDEV_DOT_ROOT_PATH:-/var/www/html}"
 readonly SCRIPT_PATH="${DDEV_DOT_SCRIPT_PATH:-tools/scripts}"
 readonly SCRIPT_DIR="${ROOT_PATH}/${SCRIPT_PATH}"
 readonly DEBUG_MODE="${DDEV_DOT_DEBUG:-false}"
+# Optional: default context so "ddev dot <script>" runs <default_context>/<script>
+readonly DEFAULT_CTX="${DDEV_DOT_DEFAULT_CONTEXT:-}"
+# Optional: path relative to ROOT_PATH for "ddev dot artisan ..." (e.g. apps/experiences-app)
+readonly ARTISAN_PATH="${DDEV_DOT_ARTISAN_PATH:-}"
 
 # Colors for output
 readonly RED='\033[0;31m'
@@ -45,15 +49,33 @@ log_error() {
     echo -e "${RED}❌ $1${NC}" >&2
 }
 
+# List contexts (excluding those whose name starts with _)
+list_contexts() {
+    find "$SCRIPT_DIR" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' 2>/dev/null | grep -v '^_' || true
+}
+
+# List all scripts by context (skip _-prefixed contexts)
+list_scripts() {
+    for ctx in $(list_contexts); do
+        [[ -d "$SCRIPT_DIR/$ctx" ]] || continue
+        echo ""
+        echo "$ctx:"
+        find "$SCRIPT_DIR/$ctx" -type f -executable -printf '  %f\n' 2>/dev/null || true
+    done
+    echo ""
+}
+
 # Show help information
 show_help() {
-    cat << 'EOF'
+    cat << EOF
 ddev dot - Interactive script discovery and execution
 
 USAGE:
     ddev dot                         Interactive mode: browse contexts, then scripts
     ddev dot <context>               Browse scripts within a specific context
     ddev dot <context> <script>      Execute a specific script directly
+    ddev dot <context>/<script>      Execute using slash notation (e.g. proxy/setup)
+    ddev dot --list                  List all contexts and scripts (no fzf)
     ddev dot --help                  Show this help message
     ddev dot --setup                 Guide for setting up script directories
 
@@ -61,16 +83,22 @@ EXAMPLES:
     ddev dot                         # Browse all contexts interactively
     ddev dot database                # Browse database scripts
     ddev dot database migrate.sh     # Run database/migrate.sh directly
-    ddev dot frontend build.sh --prod  # Run with arguments
+    ddev dot proxy/setup             # Run proxy/setup using slash notation
+    ddev dot frontend build.sh --prod # Run with arguments
+    ddev dot --list                  # List all available scripts
 
 ENVIRONMENT VARIABLES:
-    DDEV_DOT_ROOT_PATH      Base path for script discovery (default: /var/www/html)
-    DDEV_DOT_SCRIPT_PATH    Relative path to scripts (default: tools/scripts)
-    DDEV_DOT_DEBUG          Enable debug output (default: false)
+    DDEV_DOT_ROOT_PATH           Base path for script discovery (default: /var/www/html)
+    DDEV_DOT_SCRIPT_PATH         Relative path to scripts (default: tools/scripts)
+    DDEV_DOT_DEBUG               Enable debug output (default: false)
+    DDEV_DOT_DEFAULT_CONTEXT     If set, "ddev dot <script>" runs <default_context>/<script>
+    DDEV_DOT_ARTISAN_PATH        If set, "ddev dot artisan [args]" runs php artisan in ROOT_PATH/ARTISAN_PATH
 
 CURRENT CONFIGURATION:
     Script directory: ${SCRIPT_DIR}
     Debug mode: ${DEBUG_MODE}
+    Default context: ${DEFAULT_CTX:- (not set)}
+    Artisan path: ${ARTISAN_PATH:- (not set)}
 EOF
 }
 
@@ -103,15 +131,20 @@ SETUP STEPS:
 4. Test the setup:
    ddev dot
 
+5. Optional: set a default context so "ddev dot test" runs without context prefix:
+   Add to .ddev/config.yaml web_environment: DDEV_DOT_DEFAULT_CONTEXT=laravel
+
+6. Optional: set artisan path for "ddev dot artisan migrate" etc.:
+   Add to .ddev/config.yaml web_environment: DDEV_DOT_ARTISAN_PATH=apps/experiences-app
+
 For more examples, see: https://github.com/pazthor/ddev-get-dot#usage
 EOF
 }
 
-# Comprehensive validation function
+# Comprehensive validation function (requires fzf and SCRIPT_DIR)
 validate_environment() {
     log_debug "Starting environment validation"
-    
-    # Check fzf availability
+
     if ! command -v fzf >/dev/null 2>&1; then
         log_error "fzf is not installed or not in PATH"
         log_info "fzf should be automatically installed with this add-on"
@@ -119,48 +152,45 @@ validate_environment() {
         return $EXIT_FZF_NOT_FOUND
     fi
     log_debug "fzf found: $(command -v fzf)"
-    
-    # Check script directory
+
     if [[ ! -d "$SCRIPT_DIR" ]]; then
         log_error "Script directory not found: $SCRIPT_DIR"
         log_info "Run 'ddev dot --setup' for setup instructions"
         return $EXIT_SCRIPT_DIR_NOT_FOUND
     fi
     log_debug "Script directory found: $SCRIPT_DIR"
-    
-    # Check if directory has any contexts
+
     local context_count
-    context_count=$(find "$SCRIPT_DIR" -mindepth 1 -maxdepth 1 -type d | wc -l)
+    context_count=$(list_contexts | wc -l)
     if [[ $context_count -eq 0 ]]; then
         log_warning "No context directories found in $SCRIPT_DIR"
         log_info "Run 'ddev dot --setup' for setup instructions"
         return $EXIT_CONTEXT_NOT_FOUND
     fi
     log_debug "Found $context_count context directories"
-    
+
     return $EXIT_SUCCESS
 }
 
-# Validate context exists and is accessible
+# Validate context exists and is accessible (contexts starting with _ are allowed when given explicitly)
 validate_context() {
     local ctx="$1"
     log_debug "Validating context: $ctx"
-    
+
     if [[ ! -d "$SCRIPT_DIR/$ctx" ]]; then
         log_error "Context '$ctx' not found in $SCRIPT_DIR"
         log_info "Available contexts:"
-        find "$SCRIPT_DIR" -mindepth 1 -maxdepth 1 -type d -printf "  %f\n" 2>/dev/null || log_info "  (none found)"
+        list_contexts | sed 's/^/  /' || log_info "  (none found)"
         return $EXIT_CONTEXT_NOT_FOUND
     fi
-    
-    # Check if context has any scripts
+
     local script_count
     script_count=$(find "$SCRIPT_DIR/$ctx" -type f -executable | wc -l)
     if [[ $script_count -eq 0 ]]; then
         log_warning "No executable scripts found in context '$ctx'"
         log_info "Make sure scripts are executable: chmod +x script.sh"
     fi
-    
+
     return $EXIT_SUCCESS
 }
 
@@ -169,22 +199,22 @@ validate_script() {
     local ctx="$1"
     local script="$2"
     local target="$SCRIPT_DIR/$ctx/$script"
-    
+
     log_debug "Validating script: $target"
-    
+
     if [[ ! -f "$target" ]]; then
         log_error "Script '$script' not found in context '$ctx'"
         log_info "Available scripts in '$ctx':"
         find "$SCRIPT_DIR/$ctx" -type f -printf "  %f\n" 2>/dev/null || log_info "  (none found)"
         return $EXIT_SCRIPT_NOT_FOUND
     fi
-    
+
     if [[ ! -x "$target" ]]; then
         log_error "Script '$script' is not executable"
         log_info "Make it executable with: chmod +x $target"
         return $EXIT_SCRIPT_NOT_EXECUTABLE
     fi
-    
+
     return $EXIT_SUCCESS
 }
 
@@ -192,10 +222,9 @@ validate_script() {
 select_script_with_fzf() {
     local ctx="$1"
     local prompt="Script in $ctx> "
-    
+
     log_debug "Starting fzf script selection for context: $ctx"
-    
-    # Find executable scripts only and provide enhanced preview
+
     local selected_script
     selected_script=$(find "$SCRIPT_DIR/$ctx" -type f -executable -printf '%f\n' | \
         fzf --prompt="$prompt" \
@@ -207,27 +236,27 @@ select_script_with_fzf() {
         log_debug "fzf selection cancelled"
         return 1
     }
-    
+
     echo "$selected_script"
     return $EXIT_SUCCESS
 }
 
-# Enhanced fzf context selection
+# Enhanced fzf context selection (exclude _-prefixed contexts)
 select_context_with_fzf() {
     local prompt="Context> "
-    
+
     log_debug "Starting fzf context selection"
-    
-    # Show context with script counts
+
     local selected_context
-    selected_context=$(find "$SCRIPT_DIR" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | \
+    selected_context=$(list_contexts | \
         while read -r ctx; do
+            [[ -z "$ctx" ]] && continue
             local count
-            count=$(find "$SCRIPT_DIR/$ctx" -type f -executable | wc -l)
+            count=$(find "$SCRIPT_DIR/$ctx" -type f -executable 2>/dev/null | wc -l)
             printf "%s (%d scripts)\n" "$ctx" "$count"
         done | \
         fzf --prompt="$prompt" \
-            --preview="echo 'Scripts in {}:'; echo '---'; find '$SCRIPT_DIR/{= s/ .*// =}' -type f -executable -printf '%f\n' 2>/dev/null | head -10" \
+            --preview="ctx=\$(echo '{}' | cut -d' ' -f1); echo \"Scripts in \$ctx:\"; find \"$SCRIPT_DIR/\$ctx\" -type f -executable -printf '%f\n' 2>/dev/null | head -10" \
             --preview-window=right:40%:wrap \
             --height=80% \
             --border \
@@ -235,8 +264,7 @@ select_context_with_fzf() {
         log_debug "fzf context selection cancelled"
         return 1
     }
-    
-    # Extract just the context name (remove the script count)
+
     echo "${selected_context%% (*}"
     return $EXIT_SUCCESS
 }
@@ -244,8 +272,8 @@ select_context_with_fzf() {
 # Main execution logic
 main() {
     log_debug "Starting dot command with args: $*"
-    
-    # Handle special arguments
+
+    # Handle special arguments (no validation needed)
     case "${1:-}" in
         --help|-h)
             show_help
@@ -259,52 +287,101 @@ main() {
             echo "ddev-get-dot version 1.0.0"
             exit $EXIT_SUCCESS
             ;;
+        --list)
+            if [[ ! -d "$SCRIPT_DIR" ]]; then
+                log_error "Script directory not found: $SCRIPT_DIR"
+                exit $EXIT_SCRIPT_DIR_NOT_FOUND
+            fi
+            list_scripts
+            exit $EXIT_SUCCESS
+            ;;
     esac
-    
-    # Validate environment before proceeding
+
+    # Validate environment before proceeding (fzf + script dir)
     validate_environment || exit $?
-    
-    # 1) Full non-interactive: context + script + args
+
+    # 2+ args: artisan passthrough, or context + script, or default-context script + args
     if [[ $# -ge 2 ]]; then
-        local ctx="$1"
-        local script="$2"
-        shift 2
-        
-        log_debug "Direct execution mode: $ctx/$script with args: $*"
-        
-        validate_context "$ctx" || exit $?
-        validate_script "$ctx" "$script" || exit $?
-        
-        local target="$SCRIPT_DIR/$ctx/$script"
-        log_debug "Executing: $target $*"
-        exec "$target" "$@"
+        if [[ -n "$ARTISAN_PATH" && "$1" == "artisan" ]]; then
+            local artisan_dir="${ROOT_PATH}/${ARTISAN_PATH}"
+            if [[ ! -d "$artisan_dir" ]]; then
+                log_error "Artisan path not found: $artisan_dir"
+                exit $EXIT_SCRIPT_DIR_NOT_FOUND
+            fi
+            shift
+            cd "$artisan_dir" || exit $?
+            log_debug "Executing: php artisan $*"
+            exec php artisan "$@"
+        fi
+        if [[ -d "$SCRIPT_DIR/$1" ]] && [[ -x "$SCRIPT_DIR/$1/$2" ]]; then
+            local ctx="$1"
+            local script="$2"
+            shift 2
+            validate_context "$ctx" || exit $?
+            local target="$SCRIPT_DIR/$ctx/$script"
+            log_debug "Executing: $target $*"
+            exec "$target" "$@"
+        fi
+        if [[ -n "$DEFAULT_CTX" && -x "$SCRIPT_DIR/$DEFAULT_CTX/$1" ]]; then
+            local script="$1"
+            shift
+            local target="$SCRIPT_DIR/$DEFAULT_CTX/$script"
+            log_debug "Executing (default context): $target $*"
+            exec "$target" "$@"
+        fi
+        log_error "Unknown context/script or non-executable script."
+        exit $EXIT_INVALID_ARGS
     fi
-    
-    # 2) Context-only: pick script within a given context
+
+    # 1 arg
     if [[ $# -eq 1 ]]; then
-        local ctx="$1"
-        
-        log_debug "Context selection mode: $ctx"
-        
-        validate_context "$ctx" || exit $?
-        
-        local script
-        script=$(select_script_with_fzf "$ctx") || exit $?
-        
-        local target="$SCRIPT_DIR/$ctx/$script"
-        log_debug "Executing: $target"
-        exec "$target"
+        local arg="$1"
+        if [[ "$arg" == */* ]]; then
+            local ctx="${arg%%/*}"
+            local script="${arg##*/}"
+            local target="$SCRIPT_DIR/$ctx/$script"
+            validate_context "$ctx" || exit $?
+            validate_script "$ctx" "$script" || exit $?
+            log_debug "Executing (slash): $target"
+            exec "$target"
+        fi
+        if [[ -d "$SCRIPT_DIR/$arg" ]]; then
+            # Context name: fzf pick script (allow _ contexts when given explicitly)
+            validate_context "$arg" || exit $?
+            local script
+            script=$(select_script_with_fzf "$arg") || exit $?
+            local target="$SCRIPT_DIR/$arg/$script"
+            log_debug "Executing: $target"
+            exec "$target"
+        fi
+        if [[ -n "$ARTISAN_PATH" && "$arg" == "artisan" ]]; then
+            local artisan_dir="${ROOT_PATH}/${ARTISAN_PATH}"
+            if [[ ! -d "$artisan_dir" ]]; then
+                log_error "Artisan path not found: $artisan_dir"
+                exit $EXIT_SCRIPT_DIR_NOT_FOUND
+            fi
+            cd "$artisan_dir" || exit $?
+            log_debug "Executing: php artisan"
+            exec php artisan
+        fi
+        if [[ -n "$DEFAULT_CTX" && -x "$SCRIPT_DIR/$DEFAULT_CTX/$arg" ]]; then
+            local target="$SCRIPT_DIR/$DEFAULT_CTX/$arg"
+            log_debug "Executing (default context): $target"
+            exec "$target"
+        fi
+        log_error "Unknown script '$arg'. Use 'ddev dot --list' to see available scripts."
+        exit $EXIT_INVALID_ARGS
     fi
-    
-    # 3) No args: pick context then pick script
+
+    # 0 args: interactive picker
     log_debug "Interactive mode: selecting context then script"
-    
+
     local ctx
     ctx=$(select_context_with_fzf) || exit $?
-    
+
     local script
     script=$(select_script_with_fzf "$ctx") || exit $?
-    
+
     local target="$SCRIPT_DIR/$ctx/$script"
     log_debug "Executing: $target"
     exec "$target"
